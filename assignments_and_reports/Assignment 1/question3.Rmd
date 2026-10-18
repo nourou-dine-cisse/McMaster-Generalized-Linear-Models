@@ -1,0 +1,128 @@
+---
+title: ''
+author: "Mouhamed Cisse"
+date: "2026-01-27"
+output: pdf_document
+---
+
+# Q.3 a) STAT 4 C03
+
+```{r}
+# salary data loading
+df = read.csv("Salary.csv")
+head(df)
+```
+
+```{r}
+cols = c("red", "green", "blue")
+syms = c(1, 17)
+plot(Salary~Exp, data=df, col=cols[Educ], pch=syms[Manage + 1])
+```
+# Q.3 b)
+
+```{r}
+model.b = lm(Salary~Exp * Educ * Manage, data=df)
+summary((model.b))
+```
+The equations of the line has this form: Y = a + bX where a and b takes the following values
+(Educ = 1, Manage = 0)
+a = Intercept + Educ
+b = Exp + Exp:Educ
+
+(Educ = 1, Manage = 1)
+a = Intercept + Educ + Manage + Educ:Manage
+b = Exp + Exp:Educ + Exp:Manage + Exp:Educ:Manage
+
+(Educ = 2, Manage = 0)
+a = Intercept + 2Educ
+b = Exp + 2Exp:Educ
+
+(Educ = 2, Manage = 1)
+a = Intercept + 2Educ + Manage + 2Educ:Manage
+b = Exp + 2Exp:Educ + Exp:Manage + 2Exp:Educ:Manage
+
+(Educ = 3, Manage = 0)
+a = Intercept + 3Educ
+b = Exp + 3Exp:Educ
+
+(Educ = 3, Manage = 1)
+a = Intercept + 3Educ + Manage + 3Educ:Manage
+b = Exp + 3Exp:Educ + Exp:Manage + 3Exp:Educ:Manage
+
+```{r}
+b_Intercept = coef(model.b)["(Intercept)"]
+b_Exp = coef(model.b)["Exp"]
+b_Educ = coef(model.b)["Educ"]
+b_Manage = coef(model.b)["Manage"]
+b_Exp.Educ = coef(model.b)["Exp:Educ"]
+b_Exp.Manage = coef(model.b)["Exp:Manage"]
+b_Educ.Manage = coef(model.b)["Educ:Manage"]
+b_All = coef(model.b)["Exp:Educ:Manage"]
+
+plot(Salary ~ Exp, data = df, col = cols[Educ], pch = syms[Manage + 1])
+
+abline(a = b_Intercept + b_Educ,
+       b = b_Exp + b_Exp.Educ,
+       col = "red", lwd = 2)        # Educ = 1, Manage = 0
+
+abline(a = b_Intercept + b_Educ + b_Manage + b_Educ.Manage,
+       b = b_Exp + b_Exp.Educ + b_Exp.Manage + b_All,
+       col = "blue", lwd = 2)       # Educ = 1, Manage = 1
+
+abline(a = b_Intercept + 2*b_Educ,
+       b = b_Exp + 2*b_Exp.Educ,
+       col = "green", lwd = 2)      # Educ = 2, Manage = 0
+
+abline(a = b_Intercept + 2*b_Educ + b_Manage + 2*b_Educ.Manage,
+       b = b_Exp + 2*b_Exp.Educ + b_Exp.Manage + 2*b_All,
+       col = "yellow", lwd = 2)     # Educ = 2, Manage = 1
+
+abline(a = b_Intercept + 3*b_Educ,
+       b = b_Exp + 3*b_Exp.Educ,
+       col = "black", lwd = 2)       # Educ = 3, Manage = 0
+
+abline(a = b_Intercept + 3*b_Educ + b_Manage + 3*b_Educ.Manage,
+       b = b_Exp + 3*b_Exp.Educ + b_Exp.Manage + 3*b_All,
+       col = "orange", lwd = 2)     # Educ = 3, Manage = 1
+```
+# Q.3 c)
+
+```{r}
+model.r = lm(Salary~Exp+Educ*Manage, data=df)
+summary(model.r)
+```
+The six lines are given by the following slope and intercept
+
+(Educ = 1, Manage = 0)
+a = Intercept + Educ
+b = Exp
+
+(Educ = 1, Manage = 1)
+a = Intercept + Educ + Manage + Educ:Manage
+b = Exp
+
+(Educ = 2, Manage = 0)
+a = Intercept + 2·Educ
+b = Exp
+
+(Educ = 2, Manage = 1)
+a = Intercept + 2·Educ + Manage + 2·Educ:Manage
+b = Exp
+
+(Educ = 3, Manage = 0)
+a = Intercept + 3·Educ
+b = Exp
+
+(Educ = 3, Manage = 1)
+a = Intercept + 3·Educ + Manage + 3·Educ:Manage
+b = Exp
+
+# Q.3 d)
+
+```{r}
+anova(model.r, model.b)
+```
+The null hypotesis H0 assumes that the following coefficient are null:
+Exp:Educ = Exp:Manage = Exp:Educ:Manage = 0
+We have a p-value of 0.04 < 0.05 conclusion: H0 is rejected and The true relation doesn't have 6 parallel lines.
+

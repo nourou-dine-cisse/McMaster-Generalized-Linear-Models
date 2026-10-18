@@ -1,0 +1,153 @@
+---
+title: "Question 3"
+author: "Mouhamed Cisse"
+date: "2026-03-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(faraway)
+data(hsb)
+head(hsb)
+```
+
+# a)
+
+```{r}
+# Table by Gender
+tab.gender <- xtabs(~ prog + gender, data = hsb)
+prop.gender <- prop.table(tab.gender, margin = 2)
+prop.gender
+```
+The academic program is the most commonly chosen for both genders, accounting for about 50% of choices. The remaining students are roughly evenly split between the general and vocational programs. Differences between males and females are minimal, with females slightly more likely to choose the academic program, and males slightly more represented in the general and vocational tracks.
+
+```{r}
+# Table by SES
+tab.ses <- xtabs(~ prog + ses, data = hsb)
+prop.ses <- prop.table(tab.ses, margin = 2)
+prop.ses
+```
+There are clear differences across socioeconomic groups. High SES students overwhelmingly choose the academic program (72%), while this drops substantially for middle (46%) and low SES students (40%). Conversely, vocational enrollment increases as SES decreases,  only 12% of high SES students choose vocational compared to 33% of middle and 26% of low SES students. General program choice is relatively stable across groups but slightly higher for low SES. Overall, higher SES is strongly associated with academic program choice.
+
+
+# b)
+
+```{r}
+# Create quartile groups for reading
+hsb$read.q  <- cut(hsb$read,  breaks = quantile(hsb$read,  probs = 0:4/4), 
+                    include.lowest = TRUE, labels = c("Q1","Q2","Q3","Q4"))
+```
+
+```{r}
+# Create quartile groups for math
+hsb$math.q  <- cut(hsb$math,  breaks = quantile(hsb$math,  probs = 0:4/4), 
+                    include.lowest = TRUE, labels = c("Q1","Q2","Q3","Q4"))
+```
+
+```{r}
+# Reading plot
+tab.read <- prop.table(xtabs(~ prog + read.q, data = hsb), margin = 2)
+
+plot(1:4, tab.read["academic",], type = "b", col = "blue", pch = 16,
+     ylim = c(0,1), xaxt = "n",
+     xlab = "Reading Quartile", ylab = "Proportion",
+     main = "Program Choice by Reading Score Quartile")
+lines(1:4, tab.read["general",],  type = "b", col = "red",   pch = 16)
+lines(1:4, tab.read["vocation",], type = "b", col = "green", pch = 16)
+axis(1, at = 1:4, labels = c("Q1","Q2","Q3","Q4"))
+legend("topright", legend = c("Academic","General","Vocational"),
+       col = c("blue","red","green"), lty = 1, pch = 16)
+```
+Reading score: Academic program choice increases strongly and consistently from Q1 (20%) to Q4 (> 80%%) as reading scores rise. Vocational drops sharply from Q1 (44%) to Q4 (10%), and general follows a similar declining trend. The relationship is clear and monotone, higher readers overwhelmingly choose academic.
+
+```{r}
+# Math plot
+tab.math <- prop.table(xtabs(~ prog + math.q, data = hsb), margin = 2)
+
+plot(1:4, tab.math["academic",], type = "b", col = "blue", pch = 16,
+     ylim = c(0,1), xaxt = "n",
+     xlab = "Math Quartile", ylab = "Proportion",
+     main = "Program Choice by Math Score Quartile")
+lines(1:4, tab.math["general",],  type = "b", col = "red",   pch = 16)
+lines(1:4, tab.math["vocation",], type = "b", col = "green", pch = 16)
+axis(1, at = 1:4, labels = c("Q1","Q2","Q3","Q4"))
+legend("topright", legend = c("Academic","General","Vocational"),
+       col = c("blue","red","green"), lty = 1, pch = 16)
+```
+Math score: The pattern is similar but the trend for academic is slightly less steep from Q1 to Q3 (23% to 55%), then jumps sharply at Q4 (>80%). Vocational again declines steadily from Q1 (45%) to Q4 (<10%), and general stays relatively flat before dropping at Q4.
+
+# c)
+
+```{r}
+library(nnet)
+
+model.c <- multinom(prog ~ gender + race + ses + schtyp + read + write + math + science + socst, data = hsb)
+summary(model.c)
+```
+
+Science is the only unexpected coefficient, it is positive for both general and vocational, meaning higher science scores are associated with choosing general or vocational over academic. This contradicts the pattern of all other scores and is counterintuitive, since higher ability students as measured by science should favour academic.
+
+# d)
+
+Gender (Male vs Female):Both coefficients are negative (general: −0.093, vocation: −0.321), meaning males are less likely than females to choose general or vocational over academic. The effect is stronger for vocational, so males have lower odds of choosing vocational over academic compared to females, holding all else constant. 
+
+Math score:Both coefficients are negative and of similar magnitude (general: −0.109, vocation: −0.114), meaning higher math scores consistently reduce the odds of choosing general or vocational over academic. A one-unit increase in math score multiplies the odds of general vs academic by e−0.109≈0.897e^{-0.109} \approx 0.897
+e−0.109≈0.897 and vocational vs academic by e−0.114≈0.892e^{-0.114} \approx 0.892
+e−0.114≈0.892.
+
+Science score:
+Both coefficients are positive (general: +0.102, vocation: +0.052), meaning higher science scores are associated with choosing general or vocational over academic, which is the opposite of what is expected.
+
+# e)
+
+```{r}
+# Construct total score
+hsb$total <- hsb$read + hsb$write + hsb$math + hsb$science + hsb$socst
+
+# Fit model with total score replacing individual scores
+model.e <- multinom(prog ~ gender + race + ses + schtyp + total, data = hsb)
+summary(model.e)
+```
+Both total score coefficients are negative as expected (general: −0.021, vocation: −0.041), meaning higher total scores consistently reduce the odds of choosing general or vocational over academic.
+A one-unit increase in total score multiplies the odds of general vs academic by e−0.021≈0.979e^{-0.021} \approx 0.979
+e−0.021≈0.979 and vocational vs academic by e−0.041≈0.960e^{-0.041} \approx 0.960
+e−0.041≈0.960.
+
+ Importantly, replacing the 5 individual scores with a single total resolves the science anomaly seen in model.c, the total score behaves consistently and in the expected direction throughout.
+
+# f)
+
+Model.e is nested within model.c because it is a restricted version of model.c. Specifically, model.e constrains the 5 individual score coefficients to be equal, replacing read, write, math, science and socst with their sum is equivalent to imposing the restriction βread=βwrite=βmath=βscience=βsocst\beta_{read} = \beta_{write} = \beta_{math} = \beta_{science} = \beta_{socst}
+βread​=βwrite​=βmath​=βscience​=βsocst​. Model.c estimates 5 separate coefficients while model.e estimates only 1.
+
+```{r}
+# LRT
+lrt <- model.e$deviance - model.c$deviance
+df  <- model.c$edf - model.e$edf
+pvalue <- pchisq(lrt, df = df, lower.tail = FALSE)
+
+lrt
+df
+pvalue
+```
+
+The LRT statistic is 22.74 on 8 degrees of freedom, giving p = 0.0037. This is significant at the 5% level, meaning model.c fits significantly better than model.e, the 5 individual scores do carry additional information beyond their sum.
+
+Despite the significant LRT favouring model.c, model.e is preferred. The improvement in fit from model.c comes at the cost of an inconsistent science coefficient that contradicts expectations. In top of that, modele.e has less covariates and is more interpretable and parsimonious than modele.c.
+
+```{r}
+# Predict program for each student
+pred <- predict(model.e, newdata = hsb)
+
+# Compare to actual
+table(Predicted = pred, Actual = hsb$prog)
+
+# Proportion correct
+mean(pred == hsb$prog)
+```
+The model correctly predicts the program for 66.5% of students overall.
+Looking at the confusion matrix by program, academic is predicted well with 94 out of 105 correctly classified (90%), but general performs poorly with only 9 out of 45 correctly classified (20%), and vocational is moderate with 30 out of 50 correctly classified (60%).

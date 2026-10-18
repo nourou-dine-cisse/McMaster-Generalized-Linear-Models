@@ -1,0 +1,92 @@
+---
+title: "Question 1"
+author: "Mouhamed Cisse - STAT 4A03"
+date: "2026-03-10"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# a)
+
+```{r}
+library(faraway)
+data(salmonella)
+plot(colonies~dose, data=salmonella)
+```
+The relationship appears to be **non-linear**. While there is an initial increase in the number of colonies as the dose increases from 0 to approximately 100, the trend levels off or slightly fluctuates at higher doses (333 and 1000).
+
+# b)
+
+```{r}
+model.b = glm(colonies~dose+I(dose^2), data=salmonella, family = "poisson")
+summ.b = summary(model.b)
+summ.b
+```
+Based on the z's p-values, all the coefficients, the intercept included are significative.
+
+```{r}
+pchisq(model.b$deviance, df=model.b$df.residual, lower.tail=FALSE)
+```
+
+Conclusion: The p-value of 1.451732e-06 is much less than 0.05, therefore we reject the null hypothesis that the quadratic Poisson model fits the data adequately. There is significant evidence that the model colonies ~ dose + I(dose^2) is not a good fit, the quadratic trend fails to capture the true relationship between dose and number of colonies.
+
+# c)
+
+```{r}
+# Plot 1: Observed vs Fitted
+plot(fitted(model.b), salmonella$colonies,
+     xlab="Fitted values", ylab="Observed values",
+     main="Observed vs Fitted")
+abline(0,1, col="red")
+```
+
+```{r}
+# Plot 2: Deviance residuals vs Fitted
+plot(fitted(model.b), summ.b$deviance.resid,
+     xlab="Fitted values", ylab="Deviance residuals",
+     main="Deviance Residuals vs Fitted")
+abline(h=0, col="red")
+```
+## Plot 1 (Observed vs Fitted)
+The observed values show no definitive trend against the fitted values and appear somewhat dispersed around the reference line, suggesting the quadratic model does not capture the data structure well.
+
+## Plot 2 (Deviance Residuals vs Fitted)
+The plot reveals clear issues with the quadratic Poisson model. Rather than being randomly scattered around zero, the residuals display a systematic pattern positive at low fitted values and negative at higher fitted values indicating model misspecification. One extreme outlier with a deviance residual of approximately 5 suggests a point that the model fits very poorly. Additionally, several residuals exceed +-2 in magnitude, which is unlikely under a well-fitting Poisson model and strongly suggests overdispersion, where the variance in the data exceeds the mean assumed by the Poisson distribution.
+
+**Conclusion: ** 
+The deviance residuals vs fitted plot reveals systematic patterns and large residuals, confirming that the quadratic Poisson model is inadequate. The issues point to both model misspecification and overdispersion.
+
+# d)
+
+```{r}
+qqnorm(model.b$residuals, 
+       main="QQ Plot - Deviance Residuals")
+qqline(model.b$residuals, col="red")
+```
+The QQ plot of the deviance residuals shows that the 18 data points align poorly with the normality line, both in the tails and in the middle. This indicates that the deviance residuals are not approximately normally distributed, casting doubt on the reliability of the asymptotic approximation. With only 18 observations, the chi-squared approximation used in the deviance test requires a much larger sample to be valid.
+
+# e)
+
+```{r}
+model.e = glm(colonies~factor(dose), data=salmonella, family = "poisson")
+summ.e = summary(model.e)
+summ.e
+```
+
+```{r}
+pchisq(model.e$deviance, df=model.e$df.residual, lower.tail=FALSE) 
+```
+Conclusion: The p-value of 0.0008096273 is still less than 0.05, therefore we reject the null hypothesis that the model with dose as factor fits the data adequately. There is significant evidence that the model colonies ~ factor(dose) is not a good fit. Since this model is the most flexible non-saturated model possible with this covariate, the poor fit suggests the presence of **overdispersion** rather than model misspecification, the Poisson assumption that variance equals the mean does not hold for this data.
+
+# f)
+
+The original model colonies ~ dose + I(dose^2) is a reduced model relative to colonies ~ factor(dose) because the factor model assigns a separate parameter to each unique dose level, while the quadratic model constrains the relationship between dose and colonies to follow a specific parametric form (a quadratic curve). The quadratic model is therefore nested within the factor model, it imposes restrictions on the parameters that the factor model does not.
+
+```{r}
+anova(model.b, model.e, test="Chisq")
+```
+**Conclusion:**
+The likelihood ratio test yields a p-value of 6.403e-05, which is much less than 0.05. Therefore we reject the null hypothesis that the quadratic model is adequate relative to the factor model. There is significant evidence that the factor model colonies ~ factor(dose) provides a significantly better fit to the data than the original quadratic model colonies ~ dose + I(dose^2), confirming that the quadratic parametric form is too restrictive to capture the true relationship between dose and number of colonies.

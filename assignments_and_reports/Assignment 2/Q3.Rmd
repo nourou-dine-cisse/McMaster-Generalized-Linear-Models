@@ -1,0 +1,133 @@
+---
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+    
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# STAT 4C03
+```{r}
+data = read.csv("Fastener.csv")
+head(data)
+```
+
+# a)
+```{r}
+model.a = glm(
+  cbind(Failed, Num.Fasteners - Failed) ~ Pressure,
+  data = data,
+  family = binomial
+)
+summ.a = summary(model.a)
+summ.a
+```
+## Analysis result:
+The results indicate that pressure has a significant positive effect on the probability of fastener failure. As pressure increases, the odds of failure increase, suggesting that higher pressure loads are associated with a greater risk of fastener failure.
+
+# b)
+```{r}
+# Satured model
+model.b = glm(
+  cbind(Failed, Num.Fasteners - Failed) ~ factor(Pressure),
+  data = data,
+  family = binomial
+)
+summ.b = summary(model.b)
+summ.b
+```
+
+```{r}
+# fitted failure probabilities from both models
+fitted.table <- data.frame(
+  Pressure = data$Pressure,
+  Saturated = predict(model.b, type = "response"),
+  Logistic  = predict(model.a, type = "response")
+)
+
+fitted.table
+```
+# c)
+```{r}
+# Extract variables
+x  <- fitted.table$Pressure
+pS <- fitted.table$Saturated
+pL <- fitted.table$Logistic
+
+# Plot the saturated model curve
+plot(x, pS,
+     type = "b",      # both points and lines
+     lwd = 2,
+     xlab = "Pressure",
+     ylab = "Failure probability",
+     main = "Failure Probability Curves")
+
+# Add the logistic model curve
+lines(x, pL,
+      type = "b",
+      col="red",
+      pch = 17,
+      lwd = 2)
+
+# Add legend
+legend("bottomright",
+       legend = c("Saturated model", "Logistic model"),
+       lwd = 2)
+```
+The two curves are almost exactly the same with slight differences.
+
+# d)
+```{r}
+# Computing the deviance 
+ni = data$Num.Fasteners
+pi.hat.i = model.a$fitted.values
+yi = data$Failed
+
+D = 2 * sum( yi * log( yi / (ni * pi.hat.i) ) + (ni - yi) * log( (ni - yi) / (ni * (1 - pi.hat.i)) ) )
+cat("Computed deviance =", D, "model.a's deviance =", model.a$deviance)
+```
+We have exactly the same value of the deviance, the results agree.
+
+# e)
+```{r}
+# Pearson GOF statistic
+
+X2 <- sum((yi - ni*pi.hat.i)^2 / (ni*pi.hat.i*(1 - pi.hat.i)))
+
+n  <- length(yi) # number of observations
+p  <- 1 # estimated parameters
+df <- n - p - 1 # degree of freedom
+
+p_value <- 1 - pchisq(X2, df)
+
+cat("Pearson X2 =", X2, "\n")
+cat("p-value =", p_value, "\n")
+```
+
+```{r}
+# The deviance GOF p-value
+p_value = 1 - pchisq(D, df)
+cat("p-value =", p_value, "\n")
+```
+The Pearson and deviance goodness-of-fit tests both yield large p-values around 0.99. There is no evidence against the fitted binomial regression model. The model appears to provide an adequate fit to the data.
+
+# f)
+```{r}
+# The model with no covariate
+model.f = glm(
+  cbind(Failed, Num.Fasteners - Failed) ~ 1,
+  data = data,
+  family = binomial
+)
+
+# LRT 
+anova(model.a, model.f)
+```
+The value of the test sttatistic is
+G2 =112.83207 − 0.37192= 112.46015
+Under H0 (Pressure has no effect of the the probability of failure), G2 follows chi2(1)
+The corresponding p-value is p-value = 2.2e-16
+## Conclusion
+Since the p-value is extremely small, we reject the null hypothesis. There is an overwhelming evidence that pressure significantly affects the probability of failure.

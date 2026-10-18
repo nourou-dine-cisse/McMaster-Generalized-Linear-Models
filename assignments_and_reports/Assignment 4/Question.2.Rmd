@@ -1,0 +1,178 @@
+---
+title: "Question 2 - STAT 4C03"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+data = read.csv("Admissions.csv") 
+head(data)
+```
+
+# b)
+
+```{r}
+tab.a <- xtabs(Freq ~ Gender + Admit + Dept, data = data)
+tab.a
+```
+
+```{r}
+# Conditional independence Gender/Admission
+model.a.1 <- glm(Freq ~ Gender + Admit + Dept + Gender:Dept + Admit:Dept,
+          family = poisson, data = data)
+
+# Homogeneous association adding Gender:Admit
+model.a.2 <- glm(Freq ~ Gender + Admit + Dept + Gender:Admit + Gender:Dept + Admit:Dept,
+          family = poisson, data = data)
+
+# Test: is Gender:Admit needed? model.a.1 compared model.a.2
+anova(model.a.1, model.a.2, test = "Chisq")
+```
+## Conclusion:
+
+Fail to reject H0. Adding Gender:Admit does not significantly improve fit, conditional independence holds. Within each department, gender has no additional effect on admission beyond what is already captured by Gender:Dept and Admit:Dept.
+
+# b)
+
+```{r}
+# Separate admitted and rejected
+admitted <- data[data$Admit == "Admitted", c("Gender", "Dept", "Freq")]
+rejected  <- data[data$Admit == "Rejected", c("Gender", "Dept", "Freq")]
+
+# Merge by Gender and Dept
+new_data <- merge(admitted, rejected, by = c("Gender", "Dept"))
+names(new_data)[3:4] <- c("Admitted", "Rejected")
+head(new_data)
+```
+```{r}
+# Fit the model
+model.b <- glm(cbind(Admitted, Rejected) ~ Gender + Dept,
+               family = "binomial",
+               data = new_data)
+summ.b = summary(model.b)
+summ.b
+```
+The **regression parameters** represent the log-odds ratio relative to the reference group (Female, Dept A).
+
+## Summary
+
+The fitted model regresses the probability of admission on Gender and Department using a logistic link. The reference category is Female applicants in Department A.
+
+**Intercept (0.682, p < 0.001):** The baseline log-odds of admission for a Female in Dept A is 0.682, corresponding to an admission probability of approximately 66%, the highest admission rate across all groups.
+
+**GenderMale (−0.100, p = 0.217):** The Wald test is non-significant. There is no evidence that gender affects admission probability once department is accounted for. This confirms the conditional independence finding from the log-linear analysis.
+
+**Department effects:** All departments show lower admission odds than Dept A, with effects growing progressively stronger from B through F. Only Dept B is non-significant (p = 0.693), meaning it has a similar admission rate to Dept A. Depts C, D, E, and F are all highly significant (p < 2e-16), with odds ratios of 0.283, 0.274, 0.175, and 0.037 respectively. Dept F is the most selective by far, applicants there have only about 4% of the admission odds of a Dept A applicant.
+
+**Conclusion:** The Wald tests paint a clear picture, admission outcomes are almost entirely determined by department, not gender. The apparent gender gap observed marginally disappears once department is controlled suggesting a Simpson's paradox.
+
+# c)
+
+```{r}
+# Fitted from binomial
+p_hat  <- fitted(model.b)
+total  <- new_data$Admitted + new_data$Rejected
+fitted_admitted_binom <- p_hat * total
+fitted_rejected_binom <- (1 - p_hat) * total
+
+# Fitted from log-linear
+loglin_fitted <- data.frame(
+  Gender  = data$Gender,
+  Dept    = data$Dept,
+  Admit   = data$Admit,
+  Fitted  = fitted(model.a.2)
+)
+
+admitted_loglin <- loglin_fitted[loglin_fitted$Admit == "Admitted", ]
+rejected_loglin <- loglin_fitted[loglin_fitted$Admit == "Rejected", ]
+
+# Merge to align with new_data order
+admitted_loglin <- merge(new_data[, c("Gender","Dept")], admitted_loglin, 
+                         by = c("Gender","Dept"))
+rejected_loglin <- merge(new_data[, c("Gender","Dept")], rejected_loglin, 
+                         by = c("Gender","Dept"))
+
+# Final comparison
+result <- data.frame(
+  Gender          = new_data$Gender,
+  Dept            = new_data$Dept,
+  binom_admitted  = round(fitted_admitted_binom, 4),
+  loglin_admitted = round(admitted_loglin$Fitted, 4),
+  binom_rejected  = round(fitted_rejected_binom, 4),
+  loglin_rejected = round(rejected_loglin$Fitted, 4)
+)
+
+result
+```
+We exactly have the same fitted counts for the binomial (b) compared to log-linear (poisson).
+
+# d)
+
+```{r}
+# Fitted probabilities
+new_data$p_hat <- fitted(model.b)
+
+# Compute odds for each row
+new_data$odds <- new_data$p_hat / (1 - new_data$p_hat)
+
+# Separate female and male
+odds_female <- new_data[new_data$Gender == "Female", c("Dept", "odds")]
+odds_male   <- new_data[new_data$Gender == "Male",   c("Dept", "odds")]
+
+# Merge and compute ratio Female/Male
+odds_ratio <- merge(odds_female, odds_male, by = "Dept")
+names(odds_ratio)[2:3] <- c("odds_female", "odds_male")
+odds_ratio$ratio_F_over_M <- odds_ratio$odds_female / odds_ratio$odds_male
+
+odds_ratio
+```
+
+A réfléchi pendant 1 s
+They odd ratio (F/M) are equal to 1.105027in every department.
+
+# e)
+
+```{r}
+# Get fitted values from conditional independence model (model.a.1)
+loglin_fitted <- data.frame(
+  Gender = data$Gender,
+  Dept   = data$Dept,
+  Admit  = data$Admit,
+  Fitted = fitted(model.a.1)
+)
+
+# Separate admitted and rejected
+admitted <- loglin_fitted[loglin_fitted$Admit == "Admitted", ]
+rejected  <- loglin_fitted[loglin_fitted$Admit == "Rejected", ]
+
+# Compute odds = admitted/rejected for each Gender x Dept
+merged <- merge(admitted, rejected, by = c("Gender", "Dept"))
+merged$odds <- merged$Fitted.x / merged$Fitted.y
+
+# Separate female and male
+odds_female <- merged[merged$Gender == "Female", c("Dept", "odds")]
+odds_male   <- merged[merged$Gender == "Male",   c("Dept", "odds")]
+
+# Merge and compute ratio Female/Male
+odds_ratio <- merge(odds_female, odds_male, by = "Dept")
+names(odds_ratio)[2:3] <- c("odds_female", "odds_male")
+odds_ratio$ratio_F_over_M <- odds_ratio$odds_female / odds_ratio$odds_male
+
+print(odds_ratio)
+```
+
+The conditional independence model (model.a.1) gives odds ratios of exactly 1 in every department, gender and admission are completely unrelated within departments by construction, since there is no Gender:Admit term.
+
+The binomial model (model.b) gives a constant ratio of 1.105 across departments, slightly favouring females.
+
+ Both are constant across departments, confirming the main effects structure in both cases.
+
+
+
+

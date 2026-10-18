@@ -1,0 +1,117 @@
+---
+title: "Q2"
+author: "Mouhamed Cisse"
+date: "2026-02-08"
+output: pdf_document
+---
+# STAT 4C03
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# a)
+```{r}
+df = read.csv("Pima.csv")
+head(df)
+```
+```{r}
+model.a = glm(diabetes~., data=df, family="binomial")
+summary.a =summary(model.a)
+summary.a
+```
+## Report on the model analysis:
+The results show that glucose, BMI, diabetes pedigree function and number of pregnancies are significant predictors of diabetes (p < 0.05), with glucose having the strongest effect. Diastolic blood pressure is also statistically significant after adjustment for the other variables. In contrast, triceps, insulin, and age are not significant in the full model. Overall, the model provides a substantial improvement over the null model.
+
+# b)
+```{r}
+# We split the data based on the response variable
+df_0 = df[df$diabetes==0,]
+df_1 = df[df$diabetes==1,]
+```
+
+```{r}
+for(i in 1:8){
+  hist(df_0[,i], xlab=paste(colnames(df)[i]), main=sprintf("Distribution of %s of none-diabetics", colnames(df)[i]))
+  cat("\\newpage")
+  hist(df_1[,i], xlab=paste(colnames(df)[i]), main=sprintf("Distribution of %s of diabetics", colnames(df)[i]))
+  cat("\\newpage")
+}
+```
+## Analysis of the distributions:
+Most of the distributions are relatively similar across the two groups, with only slight differences. However, for glucose, the distribution for diabetic individuals is clearly shifted to the right, showing a higher frequency of individuals with elevated glucose levels. Regarding age, the distribution for diabetic individuals appears more evenly spread, whereas among non-diabetic individuals, higher frequencies are observed at younger ages.
+
+# c)
+```{r}
+# Correcting irrelevant zero values on covariates
+none.zero.covars = c("age", "glucose", "diastolic", "triceps", "bmi", "insulin")
+for(covs in none.zero.covars){
+  df[df[[covs]]==0, covs] <- NA
+}
+```
+
+```{r}
+nrow(df) - sum(complete.cases(df))
+```
+Only 376 individuals have no missing values at all.
+
+# d)
+```{r}
+# Refitting the model
+model.d = glm(diabetes~., data=na.omit(df), family="binomial")
+summary.d =summary(model.d)
+summary.d
+```
+## Report on the model.d's difference with model.a:
+Compared to model.a, the model fitted on the complete-case dataset (model.d) shows some differences in statistical significance. In model.d, only glucose, BMI and pedigree remain significant at the 5% level, while pregnant and diastolic blood pressure are no longer significant. This change is mainly due to the reduced sample size after removing missing observations, which decreases statistical power and increases standard errors. However, glucose remains the strongest predictor in both models, indicating a robust association with diabetes.
+
+# e)
+```{r}
+# Included individuals
+included = complete.cases(df)
+
+# Proportion of diabetes on included 
+prop.diabetes.included = mean(df$diabetes[included])
+
+# Proportion of diabetes on excluded 
+prop.diabetes.excluded = mean(df$diabetes[!included])
+
+paste(
+  "Proportion of diabetes among included individuals:",
+  round(prop.diabetes.included, 3),
+  "| Proportion of diabetes among excluded individuals:",
+  round(prop.diabetes.excluded, 3)
+)
+```
+The proportion of individuals with diabetes is slightly lower among those included in the analysis (33%) than among those excluded due to missing data (36%).
+This suggests that inclusion in the model is associated with the response. Therefor, the missing data are not completely at random..
+
+# f)
+
+```{r}
+# Refitting the model
+model.f = glm(diabetes ~ pregnant + glucose + diastolic + bmi + pedigree + age, data = na.omit(df), family = binomial)
+summary.f =summary(model.f)
+summary.f
+```
+```{r}
+# Likelihood Ratio Test
+anova(model.d, model.f)
+```
+The test yields a p-value of 0.6507, indicating that the reduction in model complexity does not significantly worsen the model fit.
+```{r}
+# Refitting the reduced model with as much data as possible
+model.f = glm(diabetes ~ pregnant + glucose + diastolic + bmi + pedigree + age, data = df, family = binomial)
+summary.f =summary(model.f)
+summary.f
+```
+A total of 44 observations were ommited due to missingness so the final model used 762 - 44 = **724 data poins**
+
+# g)
+```{r}
+# Comparing the mean diastolic blood pressure for postive and negative individuals
+t.test(diastolic ~ diabetes, data = df)
+```
+The two-sample t-test indicates a significant difference in mean diastolic blood pressure between diabetic and non-diabetic individuals. However, in the logistic regression model, diastolic blood pressure is not statistically significant because the regression assesses its conditional effect while controlling for other covariates. The disagreement arises due to confounding and the difference between marginal and conditional associations.
+
+
+

@@ -1,0 +1,163 @@
+---
+title: "Question 1"
+author: "Mouhamed Cisse STAT 4C03"
+date: "2026-03-19"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data = read.csv("Quine.csv", stringsAsFactors = TRUE)
+head(data)
+```
+
+# a)
+
+```{r}
+model.a = glm(Days.Absent~.^2, data=data, family="poisson")
+summ.a = summary(model.a)
+summ.a
+```
+First, one coefficient (GradeG9:LearnerSlower) cannot be estimated, because there are no Average learners in Grade 9. Second, and most critically, the model exhibits severe overdispersion, the residual deviance of 1368.7 on 128 degrees of freedom gives phihat  = 10.7, far exceeding 1.
+
+```{r}
+pvalue = pchisq(model.a$deviance, df=model.a$df.residual, lower.tail=FALSE)
+pvalue
+```
+
+Conclusion: The p-value of 1.458602e-206 is way below 0.05, therefore we reject the null hypothesis H0 that the model with two-way interactions fits the data adequately. There is significant evidence that the model Days.Absent ~ .:Days.Absent is not a good fit.
+
+# b)
+
+```{r}
+par(mfrow = c(2, 2))
+plot(model.a)
+```
+```{r}
+# Deviance residuals vs Fitted
+plot(model.a$fitted.values, residuals(model.a, type = "deviance"),
+     xlab = "Fitted values", ylab = "Deviance residuals",
+     main = "Deviance Residuals vs Fitted")
+abline(h = 0, lty = 2)
+```
+The residuals show no clear systematic trend around zero.
+However, the spread is not constant, variability is notably larger at smaller fitted values (around 5–15) and there are several extreme residuals (beyond +-5) throughout the range.
+
+```{r}
+# QQ plot of deviance residuals
+qqnorm(residuals(model.a, type = "deviance"))
+qqline(residuals(model.a, type = "deviance"))
+```
+The central bulk of points follows the line reasonably well.
+Both tails deviate substantially from the diagonal, the lower tail curves well below the line and the upper tail extends far above it.
+
+Both plots consistently confirm the overdispersion already identified. The mean structure (covariates and interactions) appears reasonably specified, but the Poisson variance assumption is clearly violated. 
+
+# c)
+
+```{r}
+drop1(model.a, test="Chisq")
+```
+Conclusion
+The only interaction that appears removable is Sex:Learner (LRT = 0.09, p = 0.763). All other interactions are significant and should be retained. However, given the overdispersion, these conclusions may not be reliable.
+
+# d)
+
+```{r}
+library(dplyr)
+mv <- data %>%
+  group_by(Ethnicity, Sex, Grade, Learner) %>%
+  summarise(
+    mean_absent = mean(Days.Absent),
+    var_absent = var(Days.Absent),
+    n = n(),
+    .groups = "drop"
+  )
+mv
+```
+
+```{r}
+mv <- aggregate(Days.Absent ~ Ethnicity + Sex + Grade + Learner, 
+                data = data, 
+                FUN = function(x) c(mean = mean(x), var = var(x)))
+
+mv <- do.call(data.frame, mv)
+mv
+```
+
+
+```{r}
+names(mv)[5:6] <- c("mean_absent", "var_absent")
+
+# Plot
+plot(mv$mean_absent, mv$var_absent,
+     xlab = "Group Mean", 
+     ylab = "Group Variance",
+     main = "Variance vs Mean of Days Absent",
+     pch  = 16)
+
+# Poisson reference line: Var = Mean
+abline(a = 0, b = 1, lty = 2, col = "red")
+
+legend("topleft", legend = "Var = Mean (Poisson)", 
+       lty = 2, col = "red")
+```
+The plot provides direct empirical evidence that the Poisson assumption Var(Yi) = mui is violated across all covariate combinations. 
+
+# e)
+
+```{r}
+model.e = glm(Days.Absent~.^2, data=data, family="quasipoisson")
+summ.e = summary(model.e)
+summ.e
+```
+
+The quasi-Poisson model is roughly identical in point estimates and deviance, but corrects for overdispersion by estimating phihat = 10.72
+
+
+```{r}
+drop1(model.e, test="Chisq")
+```
+## Conclusion
+After using quasi_Poisson to fix the overdispersion issue, only Ethnicity:Grade and Sex:Grade are retained as significant interactions. The terms Ethnicity:Sex, Ethnicity:Learner, Grade:Learner, and Sex:Learner can all be considered for removal. This shows that the earlier Poisson analysis led to retaining interactions that are not genuinely supported by the data. The quasi-Poisson drop1 provides a much more honest basis for model simplification.
+
+# f)
+
+```{r}
+model.p.f = glm(Days.Absent ~ Ethnicity + Sex + Grade + Learner +
+                      Ethnicity:Sex + Ethnicity:Grade + Ethnicity:Learner +
+                      Sex:Grade + Grade:Learner,
+                    data = data, family = "poisson")
+summ.p.f = summary(model.p.f)
+summ.p.f
+```
+
+```{r}
+anova(model.p.f, model.a, test = "Chisq")
+```
+## Conclusion
+
+Dropping Sex:Learner causes a negligible increase in deviance. The p-value of 0.763 confirms that this term contributes nothing to the model. The reduced Poisson is statistically equivalent to the full model while being more having less covariates.
+
+```{r}
+model.qp.f <- glm(Days.Absent ~ Ethnicity + Sex + Grade + Learner +
+                       Ethnicity:Grade + Sex:Grade,
+                     data = data, family = "quasipoisson")
+summ.qp.f = summary(model.qp.f)
+summ.qp.f
+
+```
+
+```{r}
+anova(model.qp.f, model.e, test = "F")
+```
+## Conclusion
+
+Despite dropping 5 interaction terms (Ethnicity:Sex, Ethnicity:Learner, Sex:Learner, Grade:Learner, and one aliased term), the F-test is non-significant (p = 0.572). This means the dropped interactions are jointly non-significant, the reduced quasi-Poisson fits just as well as the full model. 
+
+Both reduced models are statistically indistinguishable from their full counterparts. The reduced quasi-Poisson is the most defensible final model, it is the most parsimonious, corrects for overdispersion, and retains only the two interactions (Ethnicity:Grade and Sex:Grade) that are genuinely supported by the data.
+
+

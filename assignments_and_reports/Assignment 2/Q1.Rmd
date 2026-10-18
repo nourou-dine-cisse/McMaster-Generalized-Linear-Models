@@ -1,0 +1,104 @@
+---
+title: "Question 1"
+author: "Mouhamed Cisse"
+date: "2026-02-10"
+output: pdf_document
+---
+# STAT 4C03
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+shuttle = read.csv("Shuttle.csv")
+```
+
+# d)
+```{r}
+# The log-likelihood gradient function
+gradient <- function(beta, x, y){
+  beta0 <- beta[1]
+  beta1 <- beta[2]
+  
+  eta <- beta0 + beta1 * x
+  pi  <- pnorm(eta)      # normale CDF function
+  phi <- dnorm(eta)      # normale density function
+  
+  grad0 <- sum(phi * (y - pi) / (pi * (1 - pi)))
+  grad1 <- sum(x * phi * (y - pi) / (pi * (1 - pi)))
+  
+  c(grad0, grad1)
+}
+
+# The log-likelihood hessian function
+hess <- function(beta, x, y){
+  eta <- beta[1] + beta[2] * x
+  pi  <- pnorm(eta)
+  phi <- dnorm(eta)
+  
+  w <- (phi^2)/(pi*(1-pi)) # + (y-pi)*phi*eta/(pi*(1-pi)) By adding this term the NR algorithm didn't converge due to numerical instability so we used the the expectation to get rid of y and ensure convergence
+  
+  h11 <- -sum(w)
+  h12 <- -sum(w * x)
+  h22 <- -sum(w * x^2)
+  
+  matrix(c(h11, h12,
+           h12, h22),
+         nrow = 2, byrow = TRUE)
+}
+```
+
+```{r}
+
+# Newton–Raphson algorithm for probit link
+Newton.Raphson <- function(beta.init, x, y, max.its = 10){
+  
+  beta <- beta.init
+  lld<- c(numeric(max.its), numeric(max.its))
+  
+  # Norm of the score at initial value
+  lld [1] <- c(gradient(beta0, x, y)[1], gradient(beta0, x, y)[2])
+  
+  for(i in 2:max.its+1){
+    
+    grad <- gradient(beta, x, y)
+    H <- hess(beta, x, y)
+    
+    beta.new <- as.vector(beta - solve(H) %*% grad)
+    
+    lld <- c(gradient(beta.new, x, y)[1], gradient(beta.new, x, y)[2])
+    
+    beta <- beta.new
+    
+    cat("Iteration", i-1,
+    ": betahat.0 =", beta[1],
+    "betahat.1 =", beta[2],
+    "log-likelihood derivative at beta.0 =", lld[1],
+    "at beta.1 =", lld[2],
+    "\n \n")
+  }
+  
+  cat("<----------------------------------------------------------------------------------------------------------> \n", "betahat.final = (",beta[1], ",", beta[2], ") Final loglikelihood derivatives value", lld[1], "at beta.0 and at beta.1 ", lld[2], "\n")
+  beta
+}
+```
+
+
+```{r}
+# application
+x = shuttle$temp
+y = shuttle$damage
+beta0 = qnorm(mean(y))
+beta.init = c(beta0, 0)
+betahat <- Newton.Raphson(beta.init, x, y)
+```
+# e)
+```{r}
+# compitation of the asymptotic standard errors of the estimators.
+I_obs  <- -hess(betahat, x, y) # fisher information
+VarHat <- solve(I_obs) # variance of betahat under normality assumption
+SE     <- sqrt(diag(VarHat)) # standard errors computation for beta 0 and beta 1 respectively
+
+SE
+```
+The error is larger for beta 0 compared to beta 1.

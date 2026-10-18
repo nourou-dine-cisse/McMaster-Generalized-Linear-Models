@@ -1,0 +1,118 @@
+---
+title: "Question 2"
+author: "Mouhamed Cisse - STAT 4A03"
+date: "2026-03-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+data = read.csv("Admissions.csv")
+head(data)
+```
+# a)
+
+```{r}
+tab = xtabs(Freq ~ Gender + Admit, data=data)
+tab
+```
+```{r}
+prop_tab = prop.table(tab, margin=1)
+prop_tab
+```
+The 2×2 table shows that there are considerably more male applicants (2691) than female applicants (1835), suggesting that men applied in greater numbers overall. Looking at the admission proportions, men were admitted at a rate of 44.5% compared to only 30.4% for women, a difference of approximately 14 percentage points. This suggests a substantial disparity in admission rates by gender, with men being notably more likely to be admitted than women. 
+
+# b)
+
+```{r}
+prop.test(x= tab[,1], n=c(tab[1,1]+ tab[1, 2],tab[2,1]+ tab[2, 2]), correct=FALSE)
+```
+**Conclusion:**
+The two-sample proportion test yields a test statistic of X² = 92.205 with 1 degree of freedom and a p-value < 2.2e-16, which is far below 0.05. Therefore we reject the null hypothesis of equal admission probabilities between genders. There is highly significant evidence that the probability of admission differs between men and women — with women admitted at a rate of 30.4% compared to 44.5% for men, a difference of approximately 14 percentage points (95% CI: [-0.170, -0.113]). 
+
+# c)
+
+```{r}
+model.c = glm(Freq~., data=data, family="poisson")
+summ.c = summary(model.c)
+summ.c
+```
+
+**Interpretation of parameters:**
+
+Intercept (4.988): The log expected count for the baseline group (Admitted, Female, Dept A).
+AdmitRejected (0.457): Being rejected increases the log count by 0.457 relative to being admitted, holding other variables constant.
+GenderMale (0.383): Being male increases the log count by 0.383 relative to female, meaning men have higher counts across admission categories.
+DeptB to DeptF: Each coefficient represents the log count difference relative to Dept A. Departments B and E have the largest negative effects.
+
+```{r}
+pchisq(model.c$deviance, df=model.c$df.residual, lower.tail=FALSE)
+```
+
+The p-value of 0 < 0.05 means the residual deviance of 2097.7 on 16 degrees of freedom is extremely large. Therefore we reject the null hypothesis of independence between admission status and gender. There is highly significant evidence that admission status and gender are not independent the probability of admission differs significantly by gender.
+
+# d)
+
+```{r}
+tab.d = xtabs(Freq ~ Gender + Admit + Dept, data=data)
+tab.d
+```
+
+```{r}
+dept_tab = prop.table(tab.d, margin=c(1,3))
+dept_tab
+```
+
+```{r}
+for(dept in c("A", "B", "C", "D", "E", "F")){
+  # subset data for this department
+  dept_data = subset(data, Dept == dept)
+  
+  # independence model
+  model_ind = glm(Freq ~ Gender + Admit, data=dept_data, family=poisson)
+  
+  # test via deviance
+  pval = pchisq(model_ind$deviance, df=model_ind$df.residual, lower.tail=FALSE)
+  
+  cat("Dept", dept, "- Deviance:", round(model_ind$deviance, 3), 
+      "- p-value:", round(pval, 4), "\n")
+}
+```
+**Conclusion:**
+While the previous result rejected automatically, for the department-level analysis we have the following results: 
+
+For departments B through F, the p-values are all greater than 0.05, so we fail to reject the null hypothesis of independence there is no significant evidence that admission status depends on gender within these departments. However, in department A yields a p-value = 0, so we reject independence gender significantly affects admission in department A, where women are admitted at a notably higher rate (82.4%) than men (62.1%).
+
+# e)
+
+```{r}
+results = data.frame(Dept=character(), Accept_Rate=numeric(), Female_Prop=numeric())
+
+for(dept in c("A", "B", "C", "D", "E", "F")){
+  dept_data = subset(data, Dept == dept)
+  
+  total = sum(dept_data$Freq)
+  admitted = sum(dept_data$Freq[dept_data$Admit == "Admitted"])
+  female = sum(dept_data$Freq[dept_data$Gender == "Female"])
+  
+  accept_rate = admitted / total
+  female_prop = female / total
+  
+  results = rbind(results, data.frame(
+    Dept = dept,
+    Accept_Rate = round(accept_rate, 3),
+    Female_Prop = round(female_prop, 3)
+  ))
+}
+
+print(results) 
+```
+These numbers shed considerable light on the cause of the paradox. Departments A and B have the highest overall acceptance rates (64.4% and 63.2%) but the lowest proportions of female applicants (11.6% and 4.3%). Conversely, departments C, E and F, which have the lowest acceptance rates (35.1%, 25.2% and 6.4%), have the highest proportions of female applicants (64.6%, 67.3% and 47.8%). 
+
+**Conclusion**
+
+The results yield that women disproportionately apply to the most competitive and selective departments, while men concentrate their applications in the most accessible ones. As a result, even though women are admitted at comparable or higher rates than men within each department, their overall admission rate appears lower in the aggregate which leads to the Simpson Paradox observed.

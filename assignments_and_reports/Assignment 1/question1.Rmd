@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+author: "Mouhamed Cisse"
+date: "2026-01-26"
+output: pdf_document
+---
+
+```{r}
+# loading Grades data and preview
+df = read.csv("Grades.csv")
+head(df)
+```
+# Q.1 a) STAT 4 C03
+```{r}
+# modeling
+model.a = lm("Final ~ Midterm1 + Midterm2 + Midterm3 + HW.Total", data=df)
+# summarizing the model
+summary(model.a)
+```
+First of all, based on the F-statistic’s p-value, the model is clearly relevant and performs much better than a random model. This shows that the set of predictors explains a significant part of the variability in the final score.
+
+Among all the covariates, Midterm2 is the most discriminating variable for predicting the Final score, with (***) significance, followed by Midterm1, which is also strongly significant 
+(**). This means that these two exams contribute the most to explaining the Final result.
+
+Both the intercept and Midterm3 have (*) significance, which indicates that they have a weaker but still statistically meaningful effect on the Final score compared to Midterm1 and Midterm2.
+
+Finally, HW.Total is not very significant, meaning that it does not really help to explain the Final score once the midterm results are already included in the model.
+
+Overall, the model shows that performance on the midterms, especially Midterm2 and Midterm1, is the main driver of the Final score, while homework has only a limited additional contribution.
+
+# Q.1 b)
+
+```{r}
+# creating the new data point
+new = data.frame(
+  HW.Total = 85,
+  Midterm1 = 70,
+  Midterm2 = 70,
+  Midterm3 = 70
+)
+
+# predicting the mean final score with 95% confidence
+predict(model.a, newdata=new, interval="confidence", level=0.95)
+```
+
+## Q.1 c)
+
+```{r}
+# adding the midterm mean column in the dataframe
+df$avg.midterm = (df$Midterm1 + df$Midterm2 + df$Midterm3)/3
+# modeling
+model.c = lm(Final ~ HW.Total + avg.midterm, data = df)
+# summarizing the model
+summary(model.c)
+```
+```{r}
+# Wald test 
+# Taking the average means to define R in order to have beta1 = beta2 = beta 3
+R = rbind(
+  c(0, 1,  -1, 0,  0),
+  c(0, 0,  1,  -1, 0)
+)
+# reference: Jan 21 R code
+q=nrow(R)
+Rbhat=R%*%coef(model.a)
+Vbhat=summary(model.a)$cov.unscaled
+VRbhat=R%*%Vbhat%*%t(R)
+MSE=summary(model.a)$sigma^2
+Fstat1=(t(Rbhat)%*%solve(VRbhat)%*%Rbhat)/(q*MSE)
+
+c("F"=Fstat1, "p.val"=pf(Fstat1,q,model.a$df.residual, lower=F))
+```
+
+
+```{r}
+# Likelihood Ratio Test
+anova(model.a, model.c)
+```
+The Wald and LRT tests give the same result. With F = 1.7197 and p-value = 0.1868
+
+# Q.1 d)
+```{r}
+# new data point
+new = data.frame(
+  HW.Total = 85,
+  avg.midterm = 70
+)
+# prediction
+predict(model.c, newdata=new, interval="confidence", level=0.95)
+```
+The reduced model’s interval is slightly shifted upward compared to the full mode.
+

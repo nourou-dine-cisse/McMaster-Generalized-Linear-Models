@@ -1,0 +1,143 @@
+---
+title: "STAT 4C03 Question 2"
+author: "Mouhamed Cisse"
+date: "2026-04-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+fruitfly = read.csv("Fruitfly.csv", stringsAsFactors = TRUE)
+head(fruitfly)
+```
+
+# a)
+
+```{r}
+plot(longevity ~ thorax, data = fruitfly,
+     col  = as.integer(fruitfly$activity),
+     pch  = as.integer(fruitfly$activity),
+     main = "Fruitfly Longevity vs Thorax")
+
+legend("topleft",
+       legend = levels(fruitfly$activity),
+       col    = 1:5,
+       pch    = 1:5,
+       bty    = "n")
+```
+
+There is a clear positive relationship between thorax and longevity in all five groups: larger individuals tend to live longer. 
+
+# b)
+
+```{r}
+m_int <- lm(longevity ~ thorax * activity, data = fruitfly)
+anova(m_int)
+```
+
+# conclusion:
+
+We have a p-value = 0.99,  there is no evidence whatsoever that the interaction is needed.
+
+```{r}
+m_add <- lm(longevity ~ thorax + activity, data = fruitfly)
+summary(m_add)
+anova(m_add, m_int) 
+```
+
+thorax: each additional mm of thorax length increases expected longevity by 134.3 days, holding activity group constant. The effect is highly significant and common to all groups.
+
+activity (baseline = high:. 8 virgin females): all other groups live significantly longer than the high-virgin group:
+
+many (8 pregnant females): +24.1 days
+one (1 virgin female): +22.6 days
+isolated: +20.0 days
+low (1 pregnant female): +13.0 days
+
+## Overall fit:
+
+R2=0.65R^2 = 0.65
+R2=0.65, meaning the model explains 65% of the variation in longevity, which is reasonable for biological data.
+
+# c)
+
+```{r}
+par(mfrow = c(2, 2))
+plot(m_add)
+```
+Residuals vs Fitted: the spread of residuals increases as fitted values get larger, this is a fan shape, indicating that flies with longer predicted lifespans also have more variable lifespans. 
+
+Normal Q-Q: the points follow the line reasonably well in the middle but deviate at the tails, suggesting the residuals are slightly right-skewed. Normality is not perfectly met.
+
+Main issues: non-constant variance and mild non-normality.  
+
+# d)
+
+```{r}
+fruitfly$log_long <- log(fruitfly$longevity)
+
+m_log <- lm(log_long ~ thorax + activity, data = fruitfly)
+summary(m_log)
+```
+
+thorax: exp(2.72) ~= 15.2, each additional mm of thorax
+multiplies expected longevity by about 15, holding activity constant. The effect is proportional rather than additive.
+activity (baseline = high): all coefficients are interpreted as multiplicative factors.
+
+R2 improves from 0.653 to 0.703, the log model explains more variance.
+
+The log transformation fixes heteroscedasticity and improves normality.
+
+```{r}
+par(mfrow = c(2, 2))
+plot(m_log)
+```
+# e)
+
+```{r}
+m_gamma <- glm(longevity ~ thorax + activity, family = Gamma(link = "log"), data = fruitfly)
+summary(m_gamma)
+```
+
+```{r}
+# Side-by-side coefficient comparison
+cbind(
+  lm_log   = coef(m_log),
+  gamma    = coef(m_gamma)
+)
+cbind(
+  se_lm  = sqrt(diag(vcov(m_log))),
+  se_glm = sqrt(diag(vcov(m_gamma)))
+)
+```
+
+The coefficient estimatesand stanard errors are very similar between the two models. 
+
+# f)
+
+```{r}
+fitted_raw   <- fitted(m_add)
+fitted_log   <- exp(fitted(m_log))      # back-transform to original scale
+fitted_gamma <- fitted(m_gamma)
+
+plot(fruitfly$longevity, fitted_raw,   pch = 1, col = "black",
+     xlab = "Observed Longevity", ylab = "Fitted Longevity",
+     main = "Observed vs Fitted: three models", ylim = c(10, 100))
+points(fruitfly$longevity, fitted_log,   pch = 2, col = "blue")
+points(fruitfly$longevity, fitted_gamma, pch = 3, col = "red")
+abline(0, 1, lty = 2)
+legend("topleft", legend = c("Raw LM", "Log LM (back-transformed)", "Gamma GLM"),
+       col = c("black", "blue", "red"), pch = 1:3, bty = "n")
+```
+The **Gamma GLM** (red crosses) and **log LM** (blue triangles) produce nearly identical fitted values across the entire range, the two symbols overlap almost perfectly throughout the plot. Both track the diagonal well, showing no systematic bias.
+
+The **raw LM** (black circles) deviates more noticeably: it tends to **overestimate** for low observed values and **underestimate** for high ones, reflecting the heteroscedasticity issue identified in part (c).
+
+Overall, the Gamma GLM and log LM are essentially interchangeable in terms of fitted values, with the raw LM being the weakest of the three.
+
+
+
+

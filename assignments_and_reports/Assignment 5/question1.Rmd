@@ -1,0 +1,143 @@
+---
+title: "STAT 4C03 Question 1"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# a)
+
+```{r}
+happy = read.csv("Happiness.csv")
+head(happy)
+```
+```{r}
+# Convert covariates to factors
+happy$sex <- factor(happy$sex, levels = c(0, 1), labels = c("Not Active", "Active"))
+happy$love <- factor(happy$love, labels = c("Lonely", "Some", "Deep"))
+happy$work <- factor(happy$work)
+head(happy)
+```
+
+
+```{r}
+# Plots
+plot(happy~money, data = happy, main = "Money vs Happiness")
+```
+
+```{r}
+boxplot(happy ~ sex,  data = happy, main = "Sex vs Happiness")
+```
+
+```{r}
+boxplot(happy ~ love, data = happy, main = "Love vs Happiness")
+```
+
+```{r}
+boxplot(happy ~ work, data = happy, main = "Work vs Happiness")
+```
+
+The scatterplot of money against happy shows no discernible trend, the points are essentially scattered horizontally across the happiness scale. Sex shows not active individuals tending toward higher happiness scores. money looks like the weakest predictor, with no apparent relationship to happiness.
+
+# b)
+
+```{r}
+# happy to ordered factor and modeling
+library(MASS)
+happy$happy <- as.ordered(happy$happy)
+m1 <- polr(happy ~ money + sex + love + work, data = happy, Hess=TRUE)
+summary(m1)
+```
+The proportional odds model with k ordered response categories has k−1 threshold parameters. The
+happy variable takes integer values but, in this sample of 39 students, one value on the 1–10 scale does not appear, so only 9 distinct levels are observed, yielding 9−1 = 8 estimated intercepts.
+
+```{r}
+# Index plot of estimated intercepts (zeta)
+plot(m1$zeta, type = "b", pch = 19,
+     xlab = "Index", ylab = "Estimated Intercept (zeta)",
+     main = "Index Plot of Proportional Odds Intercepts")
+abline(lm(m1$zeta ~ seq_along(m1$zeta)), col = "red", lty = 2)
+```
+The intercepts are roughly linear at lower indices but deviate noticeably in the middle and upper range: the small gap between indices 4–5 suggests those happiness levels are nearly indistinguishable, while the large jump at 5–6 indicates a more pronounced threshold. This implies the latent happiness scale is not uniformly spaced.
+
+# c)
+
+```{r}
+# Individual 1: lonely, not sexually active, no job, income 30
+nd1 <- data.frame(
+  money = 30,
+  sex   = factor("Not Active", levels = levels(happy$sex)),
+  love  = factor("Lonely",     levels = levels(happy$love)),
+  work  = factor(1,            levels = levels(happy$work))
+)
+
+# Individual 2: same but deep feeling of belonging
+nd2        <- nd1
+nd2$love   <- factor("Deep", levels = levels(happy$love))
+
+predict(m1, nd1, type = "probs")
+predict(m1, nd2, type = "probs")
+```
+Individual 1 (lonely): the distribution is concentrated at the lower end, with most probability mass at category 4 (~50%), followed by categories 2 and 3. Virtually no probability is assigned above category 6. This individual is predicted to have low happiness.
+
+Individual 2 (deep belonging): the distribution shifts dramatically to the upper end, category 8 alone captures ~68% of the probability, with category 7 taking another ~24%. There is essentially zero probability below category 6.
+
+# d)
+
+```{r}
+# test all covariates
+drop1(m1, test = "Chisq")
+```
+We drop money which has the largest none-significative p-value.
+
+```{r}
+m3 <- polr(happy ~ love + work + sex, data = happy)
+drop1(m3, test = "Chisq")
+```
+We drop sex which has the largest none-significative p-value.
+
+```{r}
+m4 <- polr(happy ~ love + work , data = happy)
+drop1(m4, test = "Chisq")
+```
+
+```{r}
+anova(m4, m1)
+```
+
+## Conclusion: 
+
+The p-value = 0.15 > 0.05, we have no evidence at 5% level that the reduced model (m4) is worser than the full model. The dropped covariates doesn't contribute significantly to the model.
+
+# e)
+
+```{r}
+happy_n       <- happy
+happy_n$love  <- as.numeric(happy_n$love)   
+happy_n$work  <- as.numeric(happy_n$work)  
+
+m4_num <- polr(happy ~ love + work, data = happy_n)
+anova(m4_num, m4)   
+```
+## Conclusion: 
+
+We failed to reject the null hypothesis with a p-value of 0.24. 
+The simpler numeric model is adequate and more parsimonious.
+Model selection. Subject to the LRT result, we would prefer m4_num (love and work as numeric scores): it has the same explanatory power with 4 fewer parameters.
+
+# f)
+
+```{r}
+nd1_n <- data.frame(love = 1, work = 1)
+nd2_n <- data.frame(love = 3, work = 1)
+
+predict(m4_num, nd1_n, type = "probs")
+predict(m4_num, nd2_n, type = "probs")
+```
+
+Removing money and sex from the model shifts probability mass further toward the extremes, the final model is more decisive.
+
